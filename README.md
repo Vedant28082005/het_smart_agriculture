@@ -18,7 +18,35 @@ Irrigation and safety decisions run on the ESP32, so it keeps working if Wi-Fi, 
 
 ## Status
 - [x] Phase 1: scaffold + sensor bench test (see `docs/wiring.md`)
-- [ ] Phases 2-7
+- [x] Phase 5: FastAPI backend (built ahead of firmware phases, tested with a mocked device)
+- [x] Phase 6: React dashboard
+- [ ] Phases 2-4 (control logic, Wi-Fi/MQTT, ESP32 HTTP server) and 7 (integration)
+
+## Try the dashboard without hardware (demo mode)
+The backend has a built-in fake device (`DEMO=1`) that behaves like the planned firmware.
+
+```bash
+# terminal 1: backend
+cd backend
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt   # Linux/macOS: .venv/bin/python
+cp .env.example .env        # then set DEMO=1
+.venv/Scripts/python -m uvicorn app.main:app --port 8000
+
+# terminal 2: dashboard
+cd dashboard
+npm install
+cp .env.example .env
+npm run dev                 # http://localhost:5173
+```
+
+API docs: http://localhost:8000/docs. Backend tests: `cd backend && .venv/Scripts/python -m pytest`.
+With `DEMO=0` the backend subscribes to Mosquitto and forwards commands to the ESP32 (`DEVICE_HOST`, `DEVICE_API_KEY` in `backend/.env`).
+
+## Device HTTP contract the backend expects (to be built in Phase 4)
+`POST /pump {"state":"on"|"off"}`, `POST /mode {"mode":"auto"|"manual"}`,
+`POST /thresholds {"on","off","max_run_s","cooldown_s"}`, all with an `X-API-Key` header.
+Events published on `farm/field1/events` should look like `{"type":"pump","message":"Pump ON","reason":"AUTO_LOW_MOISTURE"}`.
 
 ## Safety
 GPIO is 3.3V only. Never drive the pump from a GPIO; use a relay and a separate supply with a flyback diode.
