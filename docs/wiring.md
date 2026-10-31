@@ -44,3 +44,14 @@ Serial output every 2 s, for example:
 
 Failure handling: a soil raw outside 50-4090 sets `soil_ok=0`; if the DHT has no good read for 30 s `dht_ok=0`
 (last good values are kept and shown).
+
+## Phase 2: pump control from the serial monitor
+Serial commands (115200 baud): `mode auto|manual`, `pump on|off` (manual mode only),
+`th <on%> <off%> <max_run_s> <cooldown_s>` (saved to flash), `th show`, `help`.
+
+Rules enforced on the ESP32: pump starts below ON and stops above OFF (hysteresis); never runs with an empty tank
+(only if a float switch is fitted) or a failed soil sensor in auto mode; stops after the max run time and then cools
+down. Manual commands cannot bypass these lockouts. The relay is OFF at boot.
+
+Bench test with the pump DISCONNECTED first: watch the relay click/LED, run `mode manual`, `pump on`, `pump off`.
+If it clicks the wrong way round, flip `RELAY_ACTIVE_LOW` in `config.h`.

@@ -20,7 +20,8 @@ Irrigation and safety decisions run on the ESP32, so it keeps working if Wi-Fi, 
 - [x] Phase 1: scaffold + sensor bench test (see `docs/wiring.md`)
 - [x] Phase 5: FastAPI backend (built ahead of firmware phases, tested with a mocked device)
 - [x] Phase 6: React dashboard
-- [ ] Phases 2-4 (control logic, Wi-Fi/MQTT, ESP32 HTTP server) and 7 (integration)
+- [x] Phase 2: control logic + pump (serial-driven; PC unit tests in `firmware/tests`, not yet run, no host compiler)
+- [ ] Phases 3-4 (Wi-Fi/MQTT, ESP32 HTTP server) and 7 (integration)
 
 ## Try the dashboard without hardware (demo mode)
 The backend has a built-in fake device (`DEMO=1`) that behaves like the planned firmware.

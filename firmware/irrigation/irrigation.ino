@@ -1,10 +1,12 @@
-// Smart irrigation, Phase 1: sensor bench test + calibration.
+// Smart irrigation, Phase 2: sensors, calibration and pump control (serial-driven).
 // Libraries (Arduino IDE Library Manager): "DHT sensor library for ESPx" (DHTesp).
 // Board: "ESP32 Dev Module".
 #include <Preferences.h>
 #include <DHTesp.h>
 #include "config.h"
 #include "src/irrigation_logic/soil_calc.h"
+#include "src/irrigation_logic/controller.h"
+#include "src/irrigation_logic/relay.h"
 
 Preferences prefs;
 DHTesp dht;
@@ -23,7 +25,9 @@ unsigned long lastDhtGoodMs = 0;
 
 bool tankOk = false;
 
-unsigned long lastPrintMs = 0;
+Controller ctrl;
+
+unsigned long lastSensorMs = 0;
 String cmdBuf;
 
 int readSoilRawAvg() {
@@ -38,6 +42,37 @@ int readSoilRawAvg() {
 void saveCal() {
   prefs.putInt("dry", soilDry);
   prefs.putInt("wet", soilWet);
+}
+
+void setRelay(bool on) {
+  digitalWrite(PIN_RELAY, relayLevelHigh(on, RELAY_ACTIVE_LOW) ? HIGH : LOW);
+}
+
+void saveThresholds() {
+  const Thresholds &t = ctrl.thresholds();
+  prefs.putInt("th_on", t.on);
+  prefs.putInt("th_off", t.off);
+  prefs.putUInt("th_run", t.maxRunS);
+  prefs.putUInt("th_cool", t.cooldownS);
+}
+
+void loadThresholds() {
+  Thresholds t;
+  t.on = prefs.getInt("th_on", t.on);
+  t.off = prefs.getInt("th_off", t.off);
+  t.maxRunS = prefs.getUInt("th_run", t.maxRunS);
+  t.cooldownS = prefs.getUInt("th_cool", t.cooldownS);
+  ctrl.setThresholds(t);  // invalid stored values are ignored, defaults stay
+}
+
+Inputs currentInputs() {
+  return Inputs{millis(), soilPct, soilOk, tankOk};
+}
+
+void logEvent(const Event &e) {
+  if (e.kind == EventKind::None) return;
+  const char *what = e.kind == EventKind::PumpOn ? "PUMP ON" : e.kind == EventKind::PumpOff ? "PUMP OFF" : "ALERT";
+  Serial.printf("EVENT %s reason=%s\n", what, reasonStr(e.reason));
 }
 
 void handleCommand(String c) {
@@ -58,8 +93,40 @@ void handleCommand(String c) {
     soilWet = SOIL_DEFAULT_WET;
     saveCal();
     Serial.println("OK calibration reset to defaults");
+  } else if (c == "mode auto" || c == "mode manual") {
+    ctrl.setMode(c == "mode auto" ? Mode::Auto : Mode::Manual, millis());
+    setRelay(ctrl.pumpOn());
+    Serial.printf("OK mode=%s\n", c == "mode auto" ? "auto" : "manual");
+  } else if (c == "pump on" || c == "pump off") {
+    Event e;
+    CmdResult r = ctrl.commandPump(c == "pump on", currentInputs(), &e);
+    setRelay(ctrl.pumpOn());
+    logEvent(e);
+    if (r == CmdResult::Ok) Serial.println("OK");
+    else if (r == CmdResult::NotManual) Serial.println("REFUSED: switch to 'mode manual' first");
+    else if (r == CmdResult::TankEmpty) Serial.println("REFUSED: tank empty");
+    else Serial.println("REFUSED: cooling down after max run time");
+  } else if (c == "th show") {
+    const Thresholds &t = ctrl.thresholds();
+    Serial.printf("on<%d off>%d max_run=%us cooldown=%us\n", t.on, t.off, (unsigned)t.maxRunS, (unsigned)t.cooldownS);
+  } else if (c.startsWith("th ")) {
+    // th <on%> <off%> <max_run_s> <cooldown_s>
+    int on, off;
+    unsigned run, cool;
+    Thresholds t;
+    if (sscanf(c.c_str(), "th %d %d %u %u", &on, &off, &run, &cool) == 4) {
+      t.on = on; t.off = off; t.maxRunS = run; t.cooldownS = cool;
+      if (ctrl.setThresholds(t)) {
+        saveThresholds();
+        Serial.println("OK thresholds saved");
+      } else {
+        Serial.println("REFUSED: need 0<=on<off<=100, 1<=run<=3600, 0<=cool<=86400");
+      }
+    } else {
+      Serial.println("usage: th <on%> <off%> <max_run_s> <cooldown_s>");
+    }
   } else if (c == "help") {
-    Serial.println("Commands: cal dry | cal wet | cal show | cal reset | help");
+    Serial.println("Commands: cal dry|wet|show|reset | mode auto|manual | pump on|off | th <on> <off> <run_s> <cool_s> | th show | help");
   } else if (c.length()) {
     Serial.println("Unknown command, type: help");
   }
@@ -100,9 +167,9 @@ void readSensors() {
 }
 
 void setup() {
-  // Relay OFF first, before anything else (Phase 2 will drive it properly).
+  // Relay OFF first, before anything else.
   pinMode(PIN_RELAY, OUTPUT);
-  digitalWrite(PIN_RELAY, RELAY_ACTIVE_LOW ? HIGH : LOW);
+  setRelay(false);
 
   Serial.begin(SERIAL_BAUD);
 #if ENABLE_FLOAT_SWITCH
@@ -118,7 +185,9 @@ void setup() {
   soilDry = prefs.getInt("dry", SOIL_DEFAULT_DRY);
   soilWet = prefs.getInt("wet", SOIL_DEFAULT_WET);
 
-  Serial.println("\n== Smart Irrigation: Phase 1 bench test ==");
+  loadThresholds();
+
+  Serial.println("\n== Smart Irrigation: Phase 2 pump control ==");
   Serial.printf("Calibration dry=%d wet=%d. Type 'help'.\n", soilDry, soilWet);
 }
 
@@ -126,12 +195,17 @@ void loop() {
   pollSerial();
 
   unsigned long now = millis();
-  if (now - lastPrintMs >= SERIAL_PERIOD_MS) {
-    lastPrintMs = now;
+  if (now - lastSensorMs >= SERIAL_PERIOD_MS) {
+    lastSensorMs = now;
     readSensors();
     digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED));
-    Serial.printf("soil_raw=%d soil=%.1f%% soil_ok=%d | temp=%.1fC hum=%.1f%% dht_ok=%d (%s) | tank=%s | sensor_ok=%d\n",
-                  soilRaw, soilPct, soilOk, temp, hum, dhtOk, dhtStatus,
-                  tankOk ? "WATER" : "EMPTY", soilOk && dhtOk);
+    Serial.printf("soil_raw=%d soil=%.1f%% soil_ok=%d | temp=%.1fC hum=%.1f%% dht_ok=%d (%s) | tank=%s | pump=%s mode=%s reason=%s\n",
+                  soilRaw, soilPct, soilOk, temp, hum, dhtOk, dhtStatus, tankOk ? "WATER" : "EMPTY",
+                  ctrl.pumpOn() ? "ON" : "OFF", ctrl.mode() == Mode::Auto ? "auto" : "manual",
+                  reasonStr(ctrl.reason()));
   }
+
+  // Control runs every loop so a lockout stops the pump without waiting for the next print.
+  logEvent(ctrl.update(currentInputs()));
+  setRelay(ctrl.pumpOn());
 }
