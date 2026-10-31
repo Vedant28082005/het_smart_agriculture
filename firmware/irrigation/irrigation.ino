@@ -90,7 +90,11 @@ void readSensors() {
   // unsigned subtraction is safe across millis() rollover
   dhtOk = (lastDhtGoodMs != 0) && (millis() - lastDhtGoodMs < DHT_FAIL_TIMEOUT_MS);
 
+#if ENABLE_FLOAT_SWITCH
   tankOk = (digitalRead(PIN_FLOAT) == FLOAT_WATER_LEVEL);
+#else
+  tankOk = true;  // no float switch: tank level is not monitored
+#endif
 }
 
 void setup() {
@@ -99,7 +103,9 @@ void setup() {
   digitalWrite(PIN_RELAY, RELAY_ACTIVE_LOW ? HIGH : LOW);
 
   Serial.begin(SERIAL_BAUD);
+#if ENABLE_FLOAT_SWITCH
   pinMode(PIN_FLOAT, INPUT_PULLUP);
+#endif
   pinMode(PIN_STATUS_LED, OUTPUT);
   analogReadResolution(12);
   analogSetPinAttenuation(PIN_SOIL_AOUT, ADC_11db);

@@ -10,7 +10,7 @@ Board: ESP32 DevKit V1. Pins are defined in `firmware/irrigation/config.h`.
 | DHT22 | VCC | 3V3 | |
 | | DATA | GPIO4 | 10k pull-up to 3V3 if bare sensor (not needed on a 3-pin module) |
 | | GND | GND | |
-| Float switch | wire 1 | GPIO27 | `INPUT_PULLUP` |
+| Float switch (optional; skip if not fitted, `ENABLE_FLOAT_SWITCH 0`) | wire 1 | GPIO27 | `INPUT_PULLUP` |
 | | wire 2 | GND | Closed = LOW = water present (change `FLOAT_WATER_LEVEL` if reversed) |
 | Relay module | VCC | VIN (5V) | |
 | | GND | GND | |

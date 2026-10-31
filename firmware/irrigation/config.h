@@ -4,6 +4,7 @@
 // ---- Pins (ESP32 DevKit V1) ----
 #define PIN_SOIL_AOUT   34   // ADC1 only; ADC2 breaks when Wi-Fi is on
 #define PIN_DHT         4
+#define ENABLE_FLOAT_SWITCH 0  // 0 = no float switch fitted: tank is assumed to have water
 #define PIN_FLOAT       27   // to GND, INPUT_PULLUP
 #define PIN_RELAY       26
 #define PIN_STATUS_LED  2
