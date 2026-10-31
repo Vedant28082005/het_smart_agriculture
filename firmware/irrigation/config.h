@@ -12,7 +12,7 @@
 #define PIN_BUZZER      25
 
 // ---- Sensor type: 1 = DHT22, 0 = DHT11 ----
-#define USE_DHT22       0
+#define USE_DHT22       1
 
 // ---- Relay polarity (unknown yet: bench-test in docs/wiring.md) ----
 #define RELAY_ACTIVE_LOW 1

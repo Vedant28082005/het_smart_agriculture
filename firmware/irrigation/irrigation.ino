@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 #include <time.h>
 #include "config.h"
 #include "secrets.h"
@@ -124,6 +125,7 @@ void netLoop() {
     wifiWasUp = true;
     wifiBackoff.succeeded();
     Serial.printf("WiFi up, ip=%s rssi=%d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
+    if (MDNS.begin("irrigation")) Serial.println("Reachable as http://irrigation.local");
   }
   if (!mqtt.connected()) {
     if (mqttBackoff.due(now)) {

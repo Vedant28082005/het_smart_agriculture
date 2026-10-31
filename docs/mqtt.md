@@ -29,3 +29,7 @@ the next `sensors` message carries the current state.
    Allow port 1883 through the Windows firewall for private networks.
 3. Watch traffic: `mosquitto_sub -h localhost -t "farm/field1/#" -v`
 4. Backend: set `DEMO=0`, `MQTT_HOST`, `MQTT_USER`, `MQTT_PASS` in `backend/.env`.
+
+## Prototype shortcut
+`mosquitto/mosquitto.conf` (anonymous, LAN) is ready: `mosquitto -c mosquitto/mosquitto.conf -v`.
+The ESP32 announces itself as `irrigation.local`, which `backend/.env` already uses as `DEVICE_HOST`.
