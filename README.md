@@ -22,7 +22,8 @@ Irrigation and safety decisions run on the ESP32, so it keeps working if Wi-Fi, 
 - [x] Phase 6: React dashboard
 - [x] Phase 2: control logic + pump (serial-driven; PC unit tests in `firmware/tests`, 99 checks pass)
 - [x] Phase 3: Wi-Fi + MQTT publishing, Last Will, NTP (see `docs/mqtt.md`; payload/backoff tests in `firmware/tests`, not yet run on hardware)
-- [ ] Phase 4 (ESP32 HTTP server) and 7 (integration)
+- [x] Phase 4: ESP32 HTTP API (`docs/api.md`; helper tests in `firmware/tests`, not yet run on hardware)
+- [ ] Phase 7 (integration, hardening, report notes)
 
 ## Try the dashboard without hardware (demo mode)
 The backend has a built-in fake device (`DEMO=1`) that behaves like the planned firmware.
@@ -45,7 +46,7 @@ npm run dev                 # http://localhost:5173
 API docs: http://localhost:8000/docs. Backend tests: `cd backend && .venv/Scripts/python -m pytest`.
 With `DEMO=0` the backend subscribes to Mosquitto and forwards commands to the ESP32 (`DEVICE_HOST`, `DEVICE_API_KEY` in `backend/.env`).
 
-## Device HTTP contract the backend expects (to be built in Phase 4)
+## Device HTTP contract (implemented in Phase 4, full details in `docs/api.md`)
 `POST /pump {"state":"on"|"off"}`, `POST /mode {"mode":"auto"|"manual"}`,
 `POST /thresholds {"on","off","max_run_s","cooldown_s"}`, all with an `X-API-Key` header.
 Events published on `farm/field1/events` should look like `{"type":"pump","message":"Pump ON","reason":"AUTO_LOW_MOISTURE"}`.

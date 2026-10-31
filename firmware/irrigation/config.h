@@ -43,3 +43,4 @@
 #define MQTT_RETRY_MAX_MS   60000
 #define MQTT_SOCKET_TIMEOUT_S 2     // keeps a dead broker from stalling the control loop
 #define NTP_SERVER          "pool.ntp.org"
+#define HTTP_PORT           80

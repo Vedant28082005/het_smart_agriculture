@@ -5,11 +5,13 @@
 #include <DHTesp.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <WebServer.h>
 #include <time.h>
 #include "config.h"
 #include "secrets.h"
 #include "src/irrigation_logic/payload.h"
 #include "src/irrigation_logic/backoff.h"
+#include "src/irrigation_logic/api.h"
 #include "src/irrigation_logic/soil_calc.h"
 #include "src/irrigation_logic/controller.h"
 #include "src/irrigation_logic/relay.h"
@@ -35,6 +37,7 @@ Controller ctrl;
 
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
+WebServer server(HTTP_PORT);
 Backoff wifiBackoff(WIFI_RETRY_MIN_MS, WIFI_RETRY_MAX_MS);
 Backoff mqttBackoff(MQTT_RETRY_MIN_MS, MQTT_RETRY_MAX_MS);
 bool wifiWasUp = false;
@@ -141,8 +144,7 @@ void netLoop() {
   mqtt.loop();
 }
 
-void publishSensors() {
-  if (!mqtt.connected()) return;
+SensorSnapshot makeSnapshot() {
   SensorSnapshot s;
   s.ts = epochNow();
   s.soil = soilPct;
@@ -155,8 +157,105 @@ void publishSensors() {
   s.reason = ctrl.reason();
   s.sensorOk = soilOk && dhtOk;
   s.rssi = WiFi.RSSI();
+  return s;
+}
+
+void publishSensors() {
+  if (!mqtt.connected()) return;
   char buf[256];
-  if (buildSensorsJson(buf, sizeof buf, s) > 0) mqtt.publish(TOPIC_SENSORS, buf);
+  if (buildSensorsJson(buf, sizeof buf, makeSnapshot()) > 0) mqtt.publish(TOPIC_SENSORS, buf);
+}
+
+// ---- HTTP API (see docs/api.md). Every route requires the X-API-Key header. ----
+void sendJson(int code, const char *body) {
+  server.send(code, "application/json", body);
+}
+
+void sendError(int code, const char *error, const char *reason = nullptr) {
+  char buf[160];
+  buildErrorJson(buf, sizeof buf, error, reason);
+  sendJson(code, buf);
+}
+
+void sendStatus() {
+  char buf[480];
+  if (buildStatusJson(buf, sizeof buf, makeSnapshot(), ctrl.thresholds(), millis() / 1000) > 0) sendJson(200, buf);
+  else sendError(500, "status too large");
+}
+
+// Auth + body size check shared by all routes. Returns false after sending the error response.
+bool authorized() {
+  if (!apiKeyOk(server.header("X-API-Key").c_str(), API_KEY)) {
+    sendError(401, "Missing or invalid API key");
+    return false;
+  }
+  return true;
+}
+
+bool bodyOk(String &body) {
+  body = server.arg("plain");
+  if (body.length() == 0 || body.length() > 256) {
+    sendError(400, "Expected a JSON body of at most 256 bytes");
+    return false;
+  }
+  return true;
+}
+
+void httpStatus() {
+  if (authorized()) sendStatus();
+}
+
+void httpPump() {
+  String body;
+  if (!authorized() || !bodyOk(body)) return;
+  char state[8];
+  if (!jsonGetStr(body.c_str(), "state", state, sizeof state) || (strcmp(state, "on") && strcmp(state, "off"))) {
+    sendError(400, "state must be on or off");
+    return;
+  }
+  Event e;
+  CmdResult r = ctrl.commandPump(!strcmp(state, "on"), currentInputs(), &e);
+  setRelay(ctrl.pumpOn());
+  logEvent(e);
+  CmdHttp h = cmdResultHttp(r);
+  if (h.status == 200) sendStatus();
+  else sendError(h.status, h.error, h.reason);
+}
+
+void httpMode() {
+  String body;
+  if (!authorized() || !bodyOk(body)) return;
+  char mode[10];
+  if (!jsonGetStr(body.c_str(), "mode", mode, sizeof mode) || (strcmp(mode, "auto") && strcmp(mode, "manual"))) {
+    sendError(400, "mode must be auto or manual");
+    return;
+  }
+  ctrl.setMode(!strcmp(mode, "auto") ? Mode::Auto : Mode::Manual, millis());
+  setRelay(ctrl.pumpOn());
+  sendStatus();
+}
+
+void httpThresholds() {
+  String body;
+  if (!authorized() || !bodyOk(body)) return;
+  Thresholds t;
+  if (!parseThresholds(body.c_str(), &t) || !ctrl.setThresholds(t)) {
+    sendError(400, "need integers 0<=on<off<=100, 1<=max_run_s<=3600, 0<=cooldown_s<=86400");
+    return;
+  }
+  saveThresholds();
+  sendStatus();
+}
+
+void startHttp() {
+  const char *keys[] = {"X-API-Key"};
+  server.collectHeaders(keys, 1);
+  server.on("/status", HTTP_GET, httpStatus);
+  server.on("/pump", HTTP_POST, httpPump);
+  server.on("/mode", HTTP_POST, httpMode);
+  server.on("/thresholds", HTTP_POST, httpThresholds);
+  server.onNotFound([]() { sendError(404, "not found"); });
+  server.begin();
 }
 
 void handleCommand(String c) {
@@ -279,8 +378,9 @@ void setup() {
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setSocketTimeout(MQTT_SOCKET_TIMEOUT_S);
   mqtt.setBufferSize(512);
+  startHttp();
 
-  Serial.println("\n== Smart Irrigation: Phase 3 pump control + Wi-Fi/MQTT ==");
+  Serial.println("\n== Smart Irrigation: Phase 4 pump control + Wi-Fi/MQTT + HTTP API ==");
   Serial.printf("Calibration dry=%d wet=%d. Type 'help'.\n", soilDry, soilWet);
 }
 
@@ -302,6 +402,7 @@ void loop() {
   logEvent(ctrl.update(currentInputs()));
   setRelay(ctrl.pumpOn());
 
+  server.handleClient();
   netLoop();
   if (now - lastPublishMs >= PUBLISH_PERIOD_MS) {
     lastPublishMs = now;

@@ -6,7 +6,8 @@ Needs any C++11 compiler, no Arduino or ESP32.
 ```bash
 cd firmware/tests
 g++ -std=c++11 -Wall -Wextra -o test_controller test_controller.cpp && ./test_controller
-g++ -std=c++11 -Wall -Wextra -o test_net test_net.cpp && ./test_net     # each prints "N checks, 0 failed"
+g++ -std=c++11 -Wall -Wextra -o test_net test_net.cpp && ./test_net
+g++ -std=c++11 -Wall -Wextra -o test_api test_api.cpp && ./test_api     # each prints "N checks, 0 failed"
 ```
 
 Windows: use g++ from MSYS2/MinGW (`test_controller.exe`), or `cl /EHsc test_controller.cpp` from a Visual Studio prompt.
