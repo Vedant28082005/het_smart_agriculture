@@ -18,6 +18,7 @@ bool soilOk = false;
 
 float temp = NAN, hum = NAN;
 bool dhtOk = false;
+const char *dhtStatus = "";
 unsigned long lastDhtGoodMs = 0;
 
 bool tankOk = false;
@@ -88,6 +89,7 @@ void readSensors() {
     lastDhtGoodMs = millis();
   }
   // unsigned subtraction is safe across millis() rollover
+  dhtStatus = dht.getStatusString();
   dhtOk = (lastDhtGoodMs != 0) && (millis() - lastDhtGoodMs < DHT_FAIL_TIMEOUT_MS);
 
 #if ENABLE_FLOAT_SWITCH
@@ -128,8 +130,8 @@ void loop() {
     lastPrintMs = now;
     readSensors();
     digitalWrite(PIN_STATUS_LED, !digitalRead(PIN_STATUS_LED));
-    Serial.printf("soil_raw=%d soil=%.1f%% soil_ok=%d | temp=%.1fC hum=%.1f%% dht_ok=%d | tank=%s | sensor_ok=%d\n",
-                  soilRaw, soilPct, soilOk, temp, hum, dhtOk,
+    Serial.printf("soil_raw=%d soil=%.1f%% soil_ok=%d | temp=%.1fC hum=%.1f%% dht_ok=%d (%s) | tank=%s | sensor_ok=%d\n",
+                  soilRaw, soilPct, soilOk, temp, hum, dhtOk, dhtStatus,
                   tankOk ? "WATER" : "EMPTY", soilOk && dhtOk);
   }
 }
