@@ -33,6 +33,7 @@ const char *dhtStatus = "";
 unsigned long lastDhtGoodMs = 0;
 
 bool tankOk = false;
+bool sensorsReady = false;  // control stays idle until the first real reading
 
 Controller ctrl;
 
@@ -371,6 +372,8 @@ void setup() {
   soilWet = prefs.getInt("wet", SOIL_DEFAULT_WET);
 
   loadThresholds();
+  readSensors();
+  sensorsReady = true;
 
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -401,7 +404,7 @@ void loop() {
   }
 
   // Control runs every loop so a lockout stops the pump without waiting for the next print.
-  logEvent(ctrl.update(currentInputs()));
+  if (sensorsReady) logEvent(ctrl.update(currentInputs()));
   setRelay(ctrl.pumpOn());
 
   server.handleClient();
