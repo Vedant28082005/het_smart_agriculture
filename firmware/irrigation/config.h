@@ -32,3 +32,14 @@
 #define DHT_FAIL_TIMEOUT_MS 30000  // DHT failing this long => sensor_ok=false
 
 #define SERIAL_BAUD         115200
+
+// ---- Network (credentials live in secrets.h, copy from secrets.example.h) ----
+#define MQTT_PREFIX         "farm/field1"
+#define MQTT_CLIENT_ID      "esp32-field1"
+#define PUBLISH_PERIOD_MS   5000
+#define WIFI_RETRY_MIN_MS   10000   // Wi-Fi reconnect backoff: 10 s doubling to 60 s
+#define WIFI_RETRY_MAX_MS   60000
+#define MQTT_RETRY_MIN_MS   1000    // MQTT reconnect backoff: 1 s doubling to 60 s
+#define MQTT_RETRY_MAX_MS   60000
+#define MQTT_SOCKET_TIMEOUT_S 2     // keeps a dead broker from stalling the control loop
+#define NTP_SERVER          "pool.ntp.org"

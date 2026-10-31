@@ -3,7 +3,13 @@
 // Board: "ESP32 Dev Module".
 #include <Preferences.h>
 #include <DHTesp.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <time.h>
 #include "config.h"
+#include "secrets.h"
+#include "src/irrigation_logic/payload.h"
+#include "src/irrigation_logic/backoff.h"
 #include "src/irrigation_logic/soil_calc.h"
 #include "src/irrigation_logic/controller.h"
 #include "src/irrigation_logic/relay.h"
@@ -26,6 +32,16 @@ unsigned long lastDhtGoodMs = 0;
 bool tankOk = false;
 
 Controller ctrl;
+
+WiFiClient wifiClient;
+PubSubClient mqtt(wifiClient);
+Backoff wifiBackoff(WIFI_RETRY_MIN_MS, WIFI_RETRY_MAX_MS);
+Backoff mqttBackoff(MQTT_RETRY_MIN_MS, MQTT_RETRY_MAX_MS);
+bool wifiWasUp = false;
+unsigned long lastPublishMs = 0;
+const char *TOPIC_SENSORS = MQTT_PREFIX "/sensors";
+const char *TOPIC_EVENTS = MQTT_PREFIX "/events";
+const char *TOPIC_STATUS = MQTT_PREFIX "/status";
 
 unsigned long lastSensorMs = 0;
 String cmdBuf;
@@ -69,10 +85,78 @@ Inputs currentInputs() {
   return Inputs{millis(), soilPct, soilOk, tankOk};
 }
 
+// Epoch seconds once NTP has synced, else 0 (the backend then stamps arrival time).
+uint32_t epochNow() {
+  time_t t = time(nullptr);
+  return t > 1600000000 ? (uint32_t)t : 0;
+}
+
 void logEvent(const Event &e) {
   if (e.kind == EventKind::None) return;
   const char *what = e.kind == EventKind::PumpOn ? "PUMP ON" : e.kind == EventKind::PumpOff ? "PUMP OFF" : "ALERT";
   Serial.printf("EVENT %s reason=%s\n", what, reasonStr(e.reason));
+  if (mqtt.connected()) {  // events raised while offline are not queued; the next sensors message carries the state
+    char buf[200];
+    if (buildEventJson(buf, sizeof buf, epochNow(), e) > 0) mqtt.publish(TOPIC_EVENTS, buf);
+  }
+}
+
+// Never blocks for long: reconnects are paced by backoff and the socket timeout is short,
+// so the control loop keeps running with Wi-Fi or the broker down.
+void netLoop() {
+  unsigned long now = millis();
+  if (WiFi.status() != WL_CONNECTED) {
+    if (wifiWasUp) {
+      wifiWasUp = false;
+      Serial.println("WiFi lost");
+    }
+    if (wifiBackoff.due(now)) {
+      WiFi.disconnect();
+      WiFi.begin(WIFI_SSID, WIFI_PASS);
+      wifiBackoff.failed(now);
+    }
+    return;
+  }
+  if (!wifiWasUp) {
+    wifiWasUp = true;
+    wifiBackoff.succeeded();
+    Serial.printf("WiFi up, ip=%s rssi=%d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  }
+  if (!mqtt.connected()) {
+    if (mqttBackoff.due(now)) {
+      // Last Will: the broker publishes "offline" if we drop without saying goodbye.
+      bool ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 1, true, "offline");
+      if (ok) {
+        mqttBackoff.succeeded();
+        mqtt.publish(TOPIC_STATUS, "online", true);
+        Serial.println("MQTT connected");
+      } else {
+        mqttBackoff.failed(now);
+        Serial.printf("MQTT connect failed rc=%d, retry in %lus\n", mqtt.state(),
+                      (unsigned long)(mqttBackoff.currentDelayMs() / 1000));
+      }
+    }
+    return;
+  }
+  mqtt.loop();
+}
+
+void publishSensors() {
+  if (!mqtt.connected()) return;
+  SensorSnapshot s;
+  s.ts = epochNow();
+  s.soil = soilPct;
+  s.soilRaw = soilRaw;
+  s.temp = isnan(temp) ? 0 : temp;  // never-read DHT: 0 with sensor_ok=false
+  s.hum = isnan(hum) ? 0 : hum;
+  s.tankOk = tankOk;
+  s.pump = ctrl.pumpOn();
+  s.mode = ctrl.mode();
+  s.reason = ctrl.reason();
+  s.sensorOk = soilOk && dhtOk;
+  s.rssi = WiFi.RSSI();
+  char buf[256];
+  if (buildSensorsJson(buf, sizeof buf, s) > 0) mqtt.publish(TOPIC_SENSORS, buf);
 }
 
 void handleCommand(String c) {
@@ -187,7 +271,16 @@ void setup() {
 
   loadThresholds();
 
-  Serial.println("\n== Smart Irrigation: Phase 2 pump control ==");
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  wifiBackoff.failed(millis());
+  configTime(0, 0, NTP_SERVER);
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setSocketTimeout(MQTT_SOCKET_TIMEOUT_S);
+  mqtt.setBufferSize(512);
+
+  Serial.println("\n== Smart Irrigation: Phase 3 pump control + Wi-Fi/MQTT ==");
   Serial.printf("Calibration dry=%d wet=%d. Type 'help'.\n", soilDry, soilWet);
 }
 
@@ -208,4 +301,10 @@ void loop() {
   // Control runs every loop so a lockout stops the pump without waiting for the next print.
   logEvent(ctrl.update(currentInputs()));
   setRelay(ctrl.pumpOn());
+
+  netLoop();
+  if (now - lastPublishMs >= PUBLISH_PERIOD_MS) {
+    lastPublishMs = now;
+    publishSensors();
+  }
 }

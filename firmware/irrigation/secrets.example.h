@@ -1,4 +1,4 @@
-// Copy to secrets.h (gitignored) and fill in. Used from Phase 3 onward.
+// Copy to secrets.h (gitignored) and fill in. Required from Phase 3 (the sketch will not compile without it).
 #pragma once
 #define WIFI_SSID     "your-ssid"
 #define WIFI_PASS     "your-password"
