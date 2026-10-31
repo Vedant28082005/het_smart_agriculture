@@ -10,3 +10,6 @@ g++ -std=c++11 -Wall -Wextra -o test_controller test_controller.cpp
 ```
 
 Windows: use g++ from MSYS2/MinGW (`test_controller.exe`), or `cl /EHsc test_controller.cpp` from a Visual Studio prompt.
+
+No compiler installed? `pip install ziglang`, then `python -m ziglang c++ -std=c++11 -o test_controller test_controller.cpp`
+(this is how the tests were run on the development PC).
