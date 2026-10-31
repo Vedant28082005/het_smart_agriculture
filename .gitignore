@@ -1,0 +1,10 @@
+firmware/irrigation/secrets.h
+.env
+__pycache__/
+.venv/
+*.pyc
+*.db
+node_modules/
+dist/
+build/
+.DS_Store
