@@ -7,7 +7,7 @@ Board: ESP32 DevKit V1. Pins are defined in `firmware/irrigation/config.h`.
 | Capacitive soil sensor | VCC | 3V3 | Power from 3.3V, never 5V into the ADC |
 | | GND | GND | |
 | | AOUT | GPIO34 | ADC1 only (ADC2 breaks when Wi-Fi is on) |
-| DHT22 | VCC | 3V3 | |
+| DHT11 (or DHT22, see `USE_DHT22`) | VCC | 3V3 | |
 | | DATA | GPIO4 | 10k pull-up to 3V3 if bare sensor (not needed on a 3-pin module) |
 | | GND | GND | |
 | Float switch (optional; skip if not fitted, `ENABLE_FLOAT_SWITCH 0`) | wire 1 | GPIO27 | `INPUT_PULLUP` |
