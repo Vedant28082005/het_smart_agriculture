@@ -1,0 +1,26 @@
+{
+  "info": {"name": "Smart Irrigation", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "variable": [
+    {"key": "backend", "value": "http://localhost:8000"},
+    {"key": "esp", "value": "http://192.168.1.50"},
+    {"key": "apikey", "value": "change-me"}
+  ],
+  "item": [
+    {"name": "Backend", "item": [
+      {"name": "Health", "request": {"method": "GET", "url": "{{backend}}/api/health"}},
+      {"name": "Latest", "request": {"method": "GET", "url": "{{backend}}/api/latest"}},
+      {"name": "History 6h", "request": {"method": "GET", "url": "{{backend}}/api/history?hours=6"}},
+      {"name": "Events", "request": {"method": "GET", "url": "{{backend}}/api/events?limit=50"}},
+      {"name": "Alerts", "request": {"method": "GET", "url": "{{backend}}/api/alerts"}},
+      {"name": "Mode manual", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "url": "{{backend}}/api/mode", "body": {"mode": "raw", "raw": "{\"mode\":\"manual\"}"}}},
+      {"name": "Pump on", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "url": "{{backend}}/api/pump", "body": {"mode": "raw", "raw": "{\"state\":\"on\"}"}}},
+      {"name": "Thresholds", "request": {"method": "POST", "header": [{"key": "Content-Type", "value": "application/json"}], "url": "{{backend}}/api/thresholds", "body": {"mode": "raw", "raw": "{\"on\":30,\"off\":60,\"max_run_s\":60,\"cooldown_s\":300}"}}}
+    ]},
+    {"name": "ESP32 direct", "item": [
+      {"name": "Status", "request": {"method": "GET", "header": [{"key": "X-API-Key", "value": "{{apikey}}"}], "url": "{{esp}}/status"}},
+      {"name": "Mode manual", "request": {"method": "POST", "header": [{"key": "X-API-Key", "value": "{{apikey}}"}, {"key": "Content-Type", "value": "application/json"}], "url": "{{esp}}/mode", "body": {"mode": "raw", "raw": "{\"mode\":\"manual\"}"}}},
+      {"name": "Pump on", "request": {"method": "POST", "header": [{"key": "X-API-Key", "value": "{{apikey}}"}, {"key": "Content-Type", "value": "application/json"}], "url": "{{esp}}/pump", "body": {"mode": "raw", "raw": "{\"state\":\"on\"}"}}},
+      {"name": "Thresholds", "request": {"method": "POST", "header": [{"key": "X-API-Key", "value": "{{apikey}}"}, {"key": "Content-Type", "value": "application/json"}], "url": "{{esp}}/thresholds", "body": {"mode": "raw", "raw": "{\"on\":30,\"off\":60,\"max_run_s\":60,\"cooldown_s\":300}"}}}
+    ]}
+  ]
+}

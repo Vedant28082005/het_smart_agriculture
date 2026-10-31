@@ -23,7 +23,7 @@ Irrigation and safety decisions run on the ESP32, so it keeps working if Wi-Fi, 
 - [x] Phase 2: control logic + pump (serial-driven; PC unit tests in `firmware/tests`, 99 checks pass)
 - [x] Phase 3: Wi-Fi + MQTT publishing, Last Will, NTP (see `docs/mqtt.md`; payload/backoff tests in `firmware/tests`, not yet run on hardware)
 - [x] Phase 4: ESP32 HTTP API (`docs/api.md`; helper tests in `firmware/tests`, not yet run on hardware)
-- [ ] Phase 7 (integration, hardening, report notes)
+- [x] Phase 7: integration checklist, report notes, Postman collection (hardware results still to be recorded)
 
 ## Try the dashboard without hardware (demo mode)
 The backend has a built-in fake device (`DEMO=1`) that behaves like the planned firmware.
@@ -50,6 +50,15 @@ With `DEMO=0` the backend subscribes to Mosquitto and forwards commands to the E
 `POST /pump {"state":"on"|"off"}`, `POST /mode {"mode":"auto"|"manual"}`,
 `POST /thresholds {"on","off","max_run_s","cooldown_s"}`, all with an `X-API-Key` header.
 Events published on `farm/field1/events` should look like `{"type":"pump","message":"Pump ON","reason":"AUTO_LOW_MOISTURE"}`.
+
+## Docs
+- `docs/wiring.md` pins, wiring, calibration, relay test
+- `docs/mqtt.md` topics, Mosquitto setup
+- `docs/api.md` ESP32 HTTP API (curl examples)
+- `docs/postman_collection.json` backend + device requests
+- `docs/integration.md` bring-up checklist (do this before connecting the pump)
+- `docs/report_notes.md` design notes for the college report
+- `firmware/tests/README.md` PC unit tests
 
 ## Safety
 GPIO is 3.3V only. Never drive the pump from a GPIO; use a relay and a separate supply with a flyback diode.
