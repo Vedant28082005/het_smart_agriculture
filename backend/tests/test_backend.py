@@ -130,3 +130,19 @@ def test_thresholds_saved_after_success(client, monkeypatch):
     body = {"on": 25, "off": 70, "max_run_s": 90, "cooldown_s": 120}
     assert client.post("/api/thresholds", json=body).status_code == 200
     assert client.get("/api/latest").json()["thresholds"] == body
+
+
+def test_command_response_updates_latest_immediately(client, monkeypatch):
+    ingest.handle_sensors(sensors(mode="auto", pump=False))
+    status = json.loads(sensors(mode="manual", pump=True, reason="MANUAL_ON"))
+    monkeypatch.setattr(device, "request", lambda *a, **k: (200, status))
+    assert client.post("/api/pump", json={"state": "on"}).status_code == 200
+    latest = client.get("/api/latest").json()["reading"]
+    assert latest["pump"] is True and latest["mode"] == "manual"
+
+
+def test_refused_command_does_not_store_a_reading(client, monkeypatch):
+    ingest.handle_sensors(sensors(mode="auto", pump=False))
+    monkeypatch.setattr(device, "request", lambda *a, **k: (409, {"error": "manual mode only", "soil": 1}))
+    client.post("/api/pump", json={"state": "on"})
+    assert client.get("/api/latest").json()["reading"]["pump"] is False

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import Cards from "./Cards";
 import Charts from "./Charts";
@@ -23,17 +23,22 @@ export default function App() {
   const [backendDown, setBackendDown] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
+  // Only the newest request may update the screen, so a slow older poll cannot
+  // overwrite the state shown right after a button click.
+  const seq = useRef(0);
   const refreshLive = useCallback(async () => {
+    const mine = ++seq.current;
     try {
       const [l, a, e] = await Promise.all([api.latest(), api.alerts(), api.events()]);
+      if (mine !== seq.current) return;
       setLatest(l);
       setAlerts(a);
       setEvents(e);
       setBackendDown(false);
     } catch {
-      setBackendDown(true);
+      if (mine === seq.current) setBackendDown(true);
     } finally {
-      setLoaded(true);
+      if (mine === seq.current) setLoaded(true);
     }
   }, []);
 

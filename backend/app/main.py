@@ -1,3 +1,4 @@
+import json
 import time
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -56,6 +57,10 @@ def _forward(path: str, body: BaseModel) -> JSONResponse:
         status, data = device.request("POST", path, body.model_dump())
     except device.DeviceUnreachable:
         raise HTTPException(504, "Device unreachable")
+    # The device answers with its fresh status. Store it now so /api/latest reflects the
+    # command immediately instead of waiting for the next MQTT sensors message (up to 5 s).
+    if status < 300 and isinstance(data, dict) and "soil" in data:
+        ingest.handle_sensors(json.dumps(data))
     return JSONResponse(data, status_code=status)
 
 
