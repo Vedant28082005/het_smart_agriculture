@@ -53,6 +53,7 @@ Events published on `farm/field1/events` should look like `{"type":"pump","messa
 
 ## Docs
 - `docs/wiring.md` pins, wiring, calibration, relay test
+- `docs/setup_server.md` run the backend, broker and dashboard on another Windows PC
 - `docs/mqtt.md` topics, Mosquitto setup
 - `docs/api.md` ESP32 HTTP API (curl examples)
 - `docs/postman_collection.json` backend + device requests
