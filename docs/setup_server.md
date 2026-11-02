@@ -101,6 +101,8 @@ Re-flash the sketch. The serial monitor should show `MQTT connected`, and the Mo
 | Press Auto/Manual or Pump in the dashboard | serial monitor on the ESP32 shows the change |
 
 ## Starting everything again later
+Double-click `start_all.bat` in the project folder. It opens the three windows below (and installs dependencies on the first run). Or by hand:
+
 Three windows: Mosquitto, backend (`uvicorn ...`), dashboard (`npm run dev -- --host`). The database file `backend\irrigation.db` keeps history between runs.
 
 ## Troubleshooting
