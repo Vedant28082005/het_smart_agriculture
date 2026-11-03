@@ -66,7 +66,7 @@ void saveCal() {
 }
 
 void setRelay(bool on) {
-#if RELAY_OFF_HIGHZ
+#if RELAY_ACTIVE_LOW && RELAY_OFF_HIGHZ
   // Active-low module: drive LOW to switch on, release the pin to switch off. The module's own
   // pull-up then holds IN high, even when it is powered from 5 V and the ESP32's 3.3 V HIGH
   // is too low to switch it off.
