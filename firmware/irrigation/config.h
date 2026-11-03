@@ -12,10 +12,13 @@
 #define PIN_BUZZER      25
 
 // ---- Sensor type: 1 = DHT22, 0 = DHT11 ----
-#define USE_DHT22       0
+#define USE_DHT22 0
 
 // ---- Relay polarity (unknown yet: bench-test in docs/wiring.md) ----
 #define RELAY_ACTIVE_LOW 1
+// 1 = switch OFF by releasing the pin (high-impedance) instead of driving HIGH. Fixes active-low
+// modules that stay on when driven from 3.3 V. Only used when RELAY_ACTIVE_LOW is 1.
+#define RELAY_OFF_HIGHZ  1
 
 // ---- Float switch: level read while the tank HAS water ----
 #define FLOAT_WATER_LEVEL LOW   // LOW = switch closed to GND = water present

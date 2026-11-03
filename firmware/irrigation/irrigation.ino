@@ -66,7 +66,20 @@ void saveCal() {
 }
 
 void setRelay(bool on) {
+#if RELAY_OFF_HIGHZ
+  // Active-low module: drive LOW to switch on, release the pin to switch off. The module's own
+  // pull-up then holds IN high, even when it is powered from 5 V and the ESP32's 3.3 V HIGH
+  // is too low to switch it off.
+  if (on) {
+    pinMode(PIN_RELAY, OUTPUT);
+    digitalWrite(PIN_RELAY, LOW);
+  } else {
+    pinMode(PIN_RELAY, INPUT);
+  }
+#else
+  pinMode(PIN_RELAY, OUTPUT);
   digitalWrite(PIN_RELAY, relayLevelHigh(on, RELAY_ACTIVE_LOW) ? HIGH : LOW);
+#endif
 }
 
 void saveThresholds() {
@@ -354,7 +367,6 @@ void readSensors() {
 
 void setup() {
   // Relay OFF first, before anything else.
-  pinMode(PIN_RELAY, OUTPUT);
   setRelay(false);
 
   Serial.begin(SERIAL_BAUD);
